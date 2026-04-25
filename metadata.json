@@ -1,0 +1,6 @@
+{
+  "name": "Bojosprite",
+  "description": "An advanced pixel art editor and animation tool with layers, onion skinning, custom brushes, and tilemap support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
