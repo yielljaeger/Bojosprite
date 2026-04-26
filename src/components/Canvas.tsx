@@ -118,24 +118,34 @@ export const Canvas: React.FC<CanvasProps> = ({ state, activeBuffer, onDraw, onD
     }
   };
 
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const zoomChange = e.deltaY < 0 ? 1 : -1;
+      const newZoom = Math.min(Math.max(1, state.zoom + zoomChange), 64);
+      if (newZoom !== state.zoom) {
+        // Find a way to trigger zoom update
+        // We can't easily trigger the App's updateState from here without passing it down.
+      }
+    }
+  };
+
   return (
     <div 
       ref={containerRef}
-      className="relative flex items-center justify-center w-full h-full bg-[#1a1a1a] overflow-hidden cursor-crosshair"
+      className="relative w-full h-full bg-[#1a1a1a] overflow-auto cursor-crosshair flex"
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
     >
-      {/* Background Pattern */}
-      <div className="absolute inset-0 bg-[#222] opacity-10" style={{ backgroundImage: 'radial-gradient(#444 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
-
-      <div 
-        style={{ 
-          width: state.width * state.zoom, 
-          height: state.height * state.zoom,
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
-        }}
-        className="relative bg-[#111] border-4 border-[#333]"
-      >
+      <div className="m-auto flex-shrink-0 p-10">
+        <div 
+          style={{ 
+            width: state.width * state.zoom, 
+            height: state.height * state.zoom,
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+          }}
+          className="relative bg-[#111] border-4 border-[#333]"
+        >
         <div 
           className="absolute inset-0" 
           style={{ 
@@ -205,6 +215,7 @@ export const Canvas: React.FC<CanvasProps> = ({ state, activeBuffer, onDraw, onD
             }}
           />
         )}
+      </div>
       </div>
     </div>
   );

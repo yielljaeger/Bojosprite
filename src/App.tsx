@@ -17,7 +17,9 @@ import { Timeline } from './components/Timeline';
 import { Preview } from './components/Preview';
 import { ToolType, Layer } from './types';
 import { Download, Share2, Github, Settings, Moon, Sun, Film } from 'lucide-react';
-import gifshot from 'gifshot';
+import GIF from 'gif.js';
+// @ts-ignore - Vite specific URL import
+import gifWorkerUrl from 'gif.js/dist/gif.worker.js?url';
 
 export default function App() {
   const { 
@@ -231,7 +233,7 @@ export default function App() {
       const serializableState = {
         ...state,
         cels: Object.fromEntries(
-          Object.entries(state.cels).map(([key, val]) => [key, Array.from(val)])
+          Object.entries(state.cels).map(([key, val]) => [key, Array.from(val as Uint8ClampedArray)])
         )
       };
       
@@ -348,14 +350,28 @@ export default function App() {
   };
 
   const exportAsGIF = () => {
-    const images: string[] = [];
+    // We use a chroma key for exact transparency matching in GIF
+    const chromaKey = '#ff00ff';
     
+    const gif = new GIF({
+      workers: 2,
+      quality: 1, // lowest number is best quality
+      width: state.width,
+      height: state.height,
+      workerScript: gifWorkerUrl,
+      transparent: parseInt('ff00ff', 16), // gif.js expects hex number or string sometimes, actually it uses hex number internally if provided, or string parsing. 0xff00ff
+    });
+
     state.frames.forEach((frame) => {
       const canvas = document.createElement('canvas');
       canvas.width = state.width;
       canvas.height = state.height;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
+
+      // Fill with chroma key first
+      ctx.fillStyle = chromaKey;
+      ctx.fillRect(0, 0, state.width, state.height);
 
       state.layers.forEach(layer => {
         if (!layer.visible) return;
@@ -371,23 +387,20 @@ export default function App() {
           ctx.drawImage(tempCanvas, 0, 0);
         }
       });
-      images.push(canvas.toDataURL());
+      // dispose: 2 restores to background color, preventing overlapping
+      gif.addFrame(canvas, { delay: 100, dispose: 2 });
     });
 
-    gifshot.createGIF({
-        images,
-        gifWidth: state.width,
-        gifHeight: state.height,
-        interval: 0.1, // 100ms
-        numWorkers: 2,
-    }, (obj: any) => {
-        if (!obj.error) {
-            const link = document.createElement('a');
-            link.download = `bojosprite-${Date.now()}.gif`;
-            link.href = obj.image;
-            link.click();
-        }
+    gif.on('finished', function(blob: Blob) {
+      if (blob) {
+        const link = document.createElement('a');
+        link.download = `bojosprite-${Date.now()}.gif`;
+        link.href = URL.createObjectURL(blob);
+        link.click();
+      }
     });
+
+    gif.render();
   };
 
   return (
@@ -511,7 +524,16 @@ export default function App() {
           onToggleSymmetry={(axis) => updateState({ symmetry: { ...state.symmetry, [axis]: !state.symmetry[axis] } })}
         />
 
-        <main className="flex-1 overflow-hidden relative">
+        <main 
+          className="flex-1 overflow-auto relative"
+          onWheel={(e) => {
+            if (e.ctrlKey || e.metaKey) {
+              e.preventDefault();
+              const zoomChange = e.deltaY < 0 ? 2 : -2;
+              updateState({ zoom: Math.min(Math.max(1, state.zoom + zoomChange), 64) });
+            }
+          }}
+        >
           <Canvas 
             state={state}
             activeBuffer={activeBuffer}
